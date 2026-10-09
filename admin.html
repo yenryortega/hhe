@@ -1435,6 +1435,102 @@
       transition: border-color 0.15s, background 0.15s;
     }
     .btn-session-logout:hover { background: hsla(0, 70%, 58%, 0.1); border-color: var(--red); }
+    /* ── Analytics modal ── */
+    .btn-analytics {
+      height: 40px;
+      padding: 0 1.25rem;
+      border-radius: 8px;
+      border: 1px solid var(--gold);
+      background: var(--gold-dim);
+      color: var(--gold-light);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.2s;
+    }
+    .btn-analytics:hover { background: hsla(40, 80%, 55%, 0.25); }
+
+    .analytics-modal { max-width: 760px; max-height: calc(100vh - 2rem); display: flex; flex-direction: column; }
+    .analytics-modal .export-modal-body { overflow-y: auto; }
+
+    .an-presets { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .an-preset {
+      height: 32px; padding: 0 0.85rem; border-radius: 16px;
+      border: 1px solid var(--navy-border); background: transparent;
+      color: var(--muted); font-family: 'DM Sans', sans-serif;
+      font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+    }
+    .an-preset:hover, .an-preset.active { border-color: var(--gold); color: var(--gold-light); background: var(--gold-dim); }
+
+    .an-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+    .an-card {
+      background: hsl(220, 40%, 14%);
+      border: 1px solid var(--navy-border);
+      border-radius: 12px;
+      padding: 0.9rem 1rem;
+    }
+    .an-card .label {
+      font-size: 0.68rem; color: var(--muted); text-transform: uppercase;
+      letter-spacing: 0.08em; margin-bottom: 0.35rem;
+    }
+    .an-card .value { font-size: 1.6rem; font-weight: 600; line-height: 1; color: var(--cream); font-variant-numeric: tabular-nums; }
+    .an-card .sub { font-size: 0.72rem; color: var(--muted); margin-top: 0.35rem; }
+    .an-card .value.gold  { color: var(--gold); }
+    .an-card .value.green { color: var(--green); }
+
+    .an-bar {
+      display: flex; height: 8px; border-radius: 4px; overflow: hidden;
+      background: hsl(220, 40%, 11%); margin-top: 0.6rem;
+    }
+    .an-bar span { display: block; height: 100%; }
+
+    .an-section-title {
+      font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.12em; color: var(--gold-light); margin: 0.25rem 0 0.6rem;
+    }
+    .an-table-wrap {
+      border: 1px solid var(--navy-border); border-radius: 10px;
+      overflow: auto; max-height: 260px; margin-bottom: 1.25rem;
+    }
+    .an-table { width: 100%; min-width: 0; border-collapse: collapse; font-size: 0.82rem; }
+    .an-table th, .an-table td { padding: 0.55rem 0.8rem; text-align: right; white-space: nowrap; }
+    .an-table th:first-child, .an-table td:first-child { text-align: left; }
+    .an-table th {
+      position: sticky; top: 0; background: hsl(220, 40%, 14%);
+      cursor: default; font-size: 0.68rem;
+    }
+    .an-table th:last-child, .an-table td:last-child {
+      position: static; box-shadow: none; min-width: 0; text-align: right; background: transparent;
+    }
+    .an-table thead th:last-child { background: hsl(220, 40%, 14%); }
+    .an-table tbody tr:hover td:last-child { background: transparent; }
+    .an-table tfoot td { border-top: 1px solid var(--navy-border); font-weight: 700; color: var(--gold-light); }
+
+    .pin-modal { max-width: 360px; }
+    .pin-input {
+      width: 100%; height: 52px; border-radius: 10px;
+      border: 1px solid var(--navy-border); background: hsl(220, 50%, 11%);
+      color: var(--cream); font-family: 'DM Sans', sans-serif;
+      font-size: 1.4rem; letter-spacing: 0.5em; text-align: center;
+      outline: none; margin-bottom: 0.75rem; transition: border-color 0.2s;
+    }
+    .pin-input:focus { border-color: var(--gold); }
+    .pin-error { color: var(--red); font-size: 0.8rem; min-height: 1.2em; margin-bottom: 0.75rem; text-align: center; }
+    .pin-hint  { color: var(--muted); font-size: 0.8rem; margin-bottom: 1rem; text-align: center; line-height: 1.5; }
+    .pin-modal .btn-confirm-export { width: 100%; height: 46px; }
+    .an-loading { opacity: 0.45; transition: opacity 0.15s; }
+
+    @media (max-width: 600px) {
+      .an-grid { grid-template-columns: 1fr 1fr; }
+      .an-card .value { font-size: 1.35rem; }
+    }
   </style>
 </head>
 <body>
@@ -1483,6 +1579,7 @@
         <h1>Registrations</h1>
       </div>
       <div class="top-bar-right">
+        <button class="btn-analytics" onclick="openAnalyticsModal()">&#128202; Analytics</button>
         <button class="btn-export" onclick="openExportModal()">Export CSV</button>
         <button class="btn-logout" onclick="logout()">Sign out</button>
       </div>
@@ -1805,6 +1902,7 @@
     }
 
     function logout() {
+      if (typeof resetAnalyticsAccess === "function") resetAnalyticsAccess();
       clearTimeout(inactivityTimer);
       clearTimeout(warningTimer);
       clearInterval(countdownInterval);
@@ -2525,8 +2623,10 @@
       const grid      = document.getElementById("dpc-grid");
       grid.innerHTML  = "";
 
-      const fromVal   = document.getElementById("export-from").value;
-      const toVal     = document.getElementById("export-to").value;
+      // Analytics fields ("afrom"/"ato") have their own pair of inputs
+      const isAn      = dpField === "afrom" || dpField === "ato";
+      const fromVal   = document.getElementById(isAn ? "export-afrom" : "export-from").value;
+      const toVal     = document.getElementById(isAn ? "export-ato"   : "export-to").value;
       const todayStr  = localIsoToday();
       const startDay  = new Date(dpYear, dpMonth, 1).getDay();
       const lastDay   = new Date(dpYear, dpMonth + 1, 0).getDate();
@@ -2573,8 +2673,14 @@
       const [y, m, d] = iso.split("-");
       document.getElementById(`dp-${dpField}-display`).textContent = `${y}/${m}/${d}`;
       document.getElementById(`dp-${dpField}-btn`).classList.add("has-value");
+      const field = dpField;
       closeDatePicker();
-      updateExportSummary();
+      if (field === "afrom" || field === "ato") {
+        clearAnalyticsPresetHighlight();
+        updateAnalytics();
+      } else {
+        updateExportSummary();
+      }
     }
 
     // Close calendar on outside click/tap
@@ -2702,6 +2808,406 @@
       </div>
     </div>
   </div>
+
+  <!-- ── Analytics PIN modal ── -->
+  <div class="export-modal-backdrop" id="pin-modal-backdrop">
+    <div class="export-modal pin-modal">
+      <div class="export-modal-header">
+        <span class="export-modal-title">&#128274; Analytics access</span>
+        <button class="btn-close-export" onclick="closePinModal()" title="Close">×</button>
+      </div>
+      <div class="export-modal-body">
+        <p class="pin-hint">Enter the analytics PIN to continue.</p>
+        <input type="password" id="pin-input" class="pin-input" inputmode="numeric"
+               autocomplete="off" maxlength="32" placeholder="••••">
+        <p class="pin-error" id="pin-error"></p>
+        <button class="btn-confirm-export" id="btn-pin-submit" onclick="submitAnalyticsPin()">Unlock</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Analytics modal ── -->
+  <div class="export-modal-backdrop" id="analytics-modal-backdrop">
+    <div class="export-modal analytics-modal">
+      <div class="export-modal-header">
+        <span class="export-modal-title">Analytics Report</span>
+        <button class="btn-close-export" onclick="closeAnalyticsModal()" title="Close">×</button>
+      </div>
+
+      <div class="export-modal-body">
+        <div class="an-presets">
+          <button type="button" class="an-preset" data-preset="today"  onclick="setAnalyticsPreset('today')">Today</button>
+          <button type="button" class="an-preset" data-preset="7d"     onclick="setAnalyticsPreset('7d')">Last 7 days</button>
+          <button type="button" class="an-preset" data-preset="30d"    onclick="setAnalyticsPreset('30d')">Last 30 days</button>
+          <button type="button" class="an-preset" data-preset="month"  onclick="setAnalyticsPreset('month')">This month</button>
+          <button type="button" class="an-preset" data-preset="all"    onclick="setAnalyticsPreset('all')">All time</button>
+        </div>
+
+        <div class="export-date-range">
+          <div class="export-field">
+            <label>From (JST)</label>
+            <input type="hidden" id="export-afrom">
+            <button type="button" class="date-picker-btn" id="dp-afrom-btn" onclick="openDatePicker('afrom')">
+              <span id="dp-afrom-display">From date</span>
+            </button>
+          </div>
+          <span class="export-arrow">→</span>
+          <div class="export-field">
+            <label>To (JST)</label>
+            <input type="hidden" id="export-ato">
+            <button type="button" class="date-picker-btn" id="dp-ato-btn" onclick="openDatePicker('ato')">
+              <span id="dp-ato-display">To date</span>
+            </button>
+          </div>
+        </div>
+
+        <p class="export-summary" id="an-summary"></p>
+
+        <div class="an-grid">
+          <div class="an-card">
+            <p class="label">Total registrations</p>
+            <p class="value gold" id="an-total">0</p>
+            <p class="sub" id="an-total-sub">&nbsp;</p>
+          </div>
+          <div class="an-card">
+            <p class="label">Normal (with ticket)</p>
+            <p class="value" id="an-web">0</p>
+            <p class="sub" id="an-web-sub">&nbsp;</p>
+          </div>
+          <div class="an-card">
+            <p class="label">Via Media</p>
+            <p class="value" id="an-media">0</p>
+            <p class="sub" id="an-media-sub">&nbsp;</p>
+          </div>
+          <div class="an-card">
+            <p class="label">Tickets used</p>
+            <p class="value green" id="an-used">0</p>
+            <p class="sub" id="an-used-sub">&nbsp;</p>
+          </div>
+          <div class="an-card">
+            <p class="label">Tickets not used</p>
+            <p class="value" id="an-pending">0</p>
+            <p class="sub" id="an-pending-sub">&nbsp;</p>
+          </div>
+          <div class="an-card">
+            <p class="label">Redemption rate</p>
+            <p class="value" id="an-rate">—</p>
+            <div class="an-bar" title="Used vs not used">
+              <span id="an-bar-used"    style="background:var(--green); width:0%"></span>
+              <span id="an-bar-pending" style="background:var(--gold);  width:0%"></span>
+            </div>
+          </div>
+        </div>
+
+        <p class="an-section-title">Daily breakdown</p>
+        <div class="an-table-wrap">
+          <table class="an-table">
+            <thead>
+              <tr>
+                <th>Date (JST)</th><th>Total</th><th>Normal</th><th>Media</th><th>Used</th><th>Not used</th>
+              </tr>
+            </thead>
+            <tbody id="an-daily-body"></tbody>
+            <tfoot id="an-daily-foot"></tfoot>
+          </table>
+        </div>
+
+        <div class="export-modal-actions">
+          <button class="btn-confirm-export" id="btn-an-export" onclick="exportAnalyticsCSV()">↓ Export Report (CSV)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── Analytics ──────────────────────────────────────────────────
+    // Placed after the PIN + analytics modal markup on purpose, so every
+    // element referenced here already exists when this script runs.
+    // Numbers come from GET /admin/analytics, which requires admin auth
+    // AND the ANALYTICS_PIN set in Railway. The PIN is kept only in memory
+    // (never in sessionStorage) and is cleared on logout or page reload.
+    // All dates are JST; the server groups by Asia/Tokyo date.
+
+    let analyticsPin   = "";
+    let lastAnalytics  = null;
+    let analyticsReqId = 0;
+
+    function resetAnalyticsAccess() {
+      analyticsPin  = "";
+      lastAnalytics = null;
+      const pinBd = document.getElementById("pin-modal-backdrop");
+      const anBd  = document.getElementById("analytics-modal-backdrop");
+      if (pinBd) pinBd.classList.remove("open");
+      if (anBd)  anBd.classList.remove("open");
+    }
+
+    function jstToday() {
+      return toJSTDateString(new Date().toISOString());
+    }
+
+    // Shift a YYYY-MM-DD calendar date by n days (pure calendar math, no TZ)
+    function shiftDay(ymd, n) {
+      const [y, m, d] = ymd.split("-").map(Number);
+      const dt = new Date(Date.UTC(y, m - 1, d + n));
+      return `${dt.getUTCFullYear()}-${pad2(dt.getUTCMonth() + 1)}-${pad2(dt.getUTCDate())}`;
+    }
+
+    function presetRange(preset) {
+      const today = jstToday();
+      if (preset === "today") return { from: today, to: today };
+      if (preset === "7d")    return { from: shiftDay(today, -6),  to: today };
+      if (preset === "30d")   return { from: shiftDay(today, -29), to: today };
+      if (preset === "month") return { from: today.slice(0, 8) + "01", to: today };
+      return { from: "", to: "" };
+    }
+
+    function setAnalyticsDate(field, ymd) {
+      document.getElementById(`export-${field}`).value = ymd || "";
+      document.getElementById(`dp-${field}-display`).textContent =
+        ymd ? ymd.replace(/-/g, "/") : (field === "afrom" ? "From date" : "To date");
+      document.getElementById(`dp-${field}-btn`).classList.toggle("has-value", !!ymd);
+    }
+
+    function clearAnalyticsPresetHighlight() {
+      document.querySelectorAll(".an-preset").forEach(b => b.classList.remove("active"));
+    }
+
+    function setAnalyticsPreset(preset) {
+      const { from, to } = presetRange(preset);
+      setAnalyticsDate("afrom", from);
+      setAnalyticsDate("ato",   to);
+      clearAnalyticsPresetHighlight();
+      const btn = document.querySelector(`.an-preset[data-preset="${preset}"]`);
+      if (btn) btn.classList.add("active");
+      updateAnalytics();
+    }
+
+    function getAnalyticsRange() {
+      let from = document.getElementById("export-afrom").value;
+      let to   = document.getElementById("export-ato").value;
+      if (from && to && from > to) [from, to] = [to, from];
+      return { from, to };
+    }
+
+    // Returns { ok, status, data }
+    async function fetchAnalytics(pin, from, to) {
+      const qs = new URLSearchParams();
+      if (from) qs.set("from", from);
+      if (to)   qs.set("to",   to);
+      const res = await fetch(`${API_URL}/admin/analytics?${qs}`, {
+        headers: authHeaders({ "X-Analytics-Pin": pin })
+      });
+      let data = {};
+      try { data = await res.json(); } catch {}
+      return { ok: res.ok, status: res.status, data };
+    }
+
+    function pinErrorMessage(status, data) {
+      if (status === 403) {
+        const left = data && data.attempts_left;
+        return left != null ? `Incorrect PIN. ${left} attempt(s) left.` : "Incorrect PIN.";
+      }
+      if (status === 429) {
+        const mins = Math.ceil(((data && data.retry_after) || 300) / 60);
+        return `Too many attempts. Try again in ${mins} min.`;
+      }
+      if (status === 503) return "Analytics PIN is not configured on the server.";
+      if (status === 401) return "Admin session expired. Sign in again.";
+      return "Server error. Try again.";
+    }
+
+    // ── PIN modal ──
+    function openAnalyticsModal() {
+      if (analyticsPin) { showAnalytics(); return; }
+      const input = document.getElementById("pin-input");
+      input.value = "";
+      document.getElementById("pin-error").textContent = "";
+      document.getElementById("pin-modal-backdrop").classList.add("open");
+      setTimeout(() => input.focus(), 50);
+    }
+
+    function closePinModal() {
+      document.getElementById("pin-modal-backdrop").classList.remove("open");
+    }
+
+    async function submitAnalyticsPin() {
+      const input = document.getElementById("pin-input");
+      const err   = document.getElementById("pin-error");
+      const btn   = document.getElementById("btn-pin-submit");
+      const pin   = input.value.trim();
+      if (!pin) { err.textContent = "Enter the PIN."; return; }
+
+      btn.disabled = true;
+      err.textContent = "";
+      try {
+        // Validate the PIN with the same request that loads the default view
+        const { from, to } = presetRange("month");
+        const r = await fetchAnalytics(pin, from, to);
+        if (!r.ok) {
+          err.textContent = pinErrorMessage(r.status, r.data);
+          input.value = "";
+          input.focus();
+          return;
+        }
+        analyticsPin = pin;
+        closePinModal();
+        showAnalytics();
+      } catch {
+        err.textContent = "Connection error.";
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // ── Analytics modal ──
+    function showAnalytics() {
+      document.getElementById("analytics-modal-backdrop").classList.add("open");
+      setAnalyticsPreset("month");
+    }
+
+    function closeAnalyticsModal() {
+      closeDatePicker();
+      document.getElementById("analytics-modal-backdrop").classList.remove("open");
+    }
+
+    function pct(part, whole) {
+      return whole ? Math.round((part / whole) * 1000) / 10 : 0;
+    }
+
+    function rangeLabel(from, to) {
+      if (!from && !to) return "all dates";
+      if (from && to)   return from === to ? from : `${from} → ${to}`;
+      if (from)         return `from ${from}`;
+      return `up to ${to}`;
+    }
+
+    async function updateAnalytics() {
+      if (!analyticsPin) return;
+      const { from, to } = getAnalyticsRange();
+      const reqId = ++analyticsReqId;
+      const body  = document.querySelector("#analytics-modal-backdrop .export-modal-body");
+      body.classList.add("an-loading");
+      document.getElementById("btn-an-export").disabled = true;
+
+      let r;
+      try {
+        r = await fetchAnalytics(analyticsPin, from, to);
+      } catch {
+        if (reqId !== analyticsReqId) return;
+        body.classList.remove("an-loading");
+        document.getElementById("an-summary").textContent = "Connection error. Try again.";
+        return;
+      }
+      if (reqId !== analyticsReqId) return;   // a newer request superseded this one
+      body.classList.remove("an-loading");
+
+      if (!r.ok) {
+        // PIN changed in Railway, or locked out → ask again
+        if (r.status === 403 || r.status === 429 || r.status === 503) {
+          resetAnalyticsAccess();
+          openAnalyticsModal();
+          document.getElementById("pin-error").textContent = pinErrorMessage(r.status, r.data);
+        } else {
+          document.getElementById("an-summary").textContent = pinErrorMessage(r.status, r.data);
+        }
+        return;
+      }
+
+      lastAnalytics = r.data;
+      renderAnalytics(r.data);
+    }
+
+    function renderAnalytics(a) {
+      const t    = a.totals;
+      const days = a.days || [];
+
+      document.getElementById("an-summary").innerHTML =
+        `Report for <span>${rangeLabel(a.from, a.to)}</span> · active records only (Trash excluded).`;
+
+      document.getElementById("an-total").textContent   = t.total;
+      document.getElementById("an-web").textContent     = t.web;
+      document.getElementById("an-media").textContent   = t.media;
+      document.getElementById("an-used").textContent    = t.used;
+      document.getElementById("an-pending").textContent = t.pending;
+
+      document.getElementById("an-total-sub").textContent   = `${days.length} day(s) with registrations`;
+      document.getElementById("an-web-sub").textContent     = `${pct(t.web, t.total)}% of total`;
+      document.getElementById("an-media-sub").textContent   = `${pct(t.media, t.total)}% of total`;
+      document.getElementById("an-used-sub").textContent    = `${pct(t.used, t.web)}% of normal`;
+      document.getElementById("an-pending-sub").textContent = `${pct(t.pending, t.web)}% of normal`;
+
+      document.getElementById("an-rate").textContent = t.web ? `${pct(t.used, t.web)}%` : "—";
+      document.getElementById("an-bar-used").style.width    = `${pct(t.used, t.web)}%`;
+      document.getElementById("an-bar-pending").style.width = `${t.web ? 100 - pct(t.used, t.web) : 0}%`;
+
+      const tbody = document.getElementById("an-daily-body");
+      const tfoot = document.getElementById("an-daily-foot");
+      if (days.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-state">No registrations in this range.</td></tr>`;
+        tfoot.innerHTML = "";
+      } else {
+        tbody.innerHTML = days.slice().reverse().map(d => `
+          <tr>
+            <td>${d.day}</td><td>${d.total}</td><td>${d.web}</td>
+            <td>${d.media}</td><td>${d.used}</td><td>${d.pending}</td>
+          </tr>`).join("");
+        tfoot.innerHTML = `
+          <tr>
+            <td>Total</td><td>${t.total}</td><td>${t.web}</td>
+            <td>${t.media}</td><td>${t.used}</td><td>${t.pending}</td>
+          </tr>`;
+      }
+
+      document.getElementById("btn-an-export").disabled = t.total === 0;
+    }
+
+    function exportAnalyticsCSV() {
+      if (!lastAnalytics || !lastAnalytics.totals.total) return;
+      const { from, to, totals: t } = lastAnalytics;
+      const days = lastAnalytics.days || [];
+
+      const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
+      const lines = [];
+      lines.push(q("Hilton Niseko Village — Registrations Analytics"));
+      lines.push([q("Range (JST)"), q(rangeLabel(from, to))].join(","));
+      lines.push([q("Generated (JST)"), q(toJSTDateTimeString(new Date().toISOString()))].join(","));
+      lines.push([q("Scope"), q("Active records only (Trash excluded)")].join(","));
+      lines.push("");
+      lines.push([q("Metric"), q("Value"), q("%")].join(","));
+      lines.push([q("Total registrations"),        t.total,   q("100%")].join(","));
+      lines.push([q("Normal registrations (web)"), t.web,     q(pct(t.web, t.total) + "% of total")].join(","));
+      lines.push([q("Media registrations"),        t.media,   q(pct(t.media, t.total) + "% of total")].join(","));
+      lines.push([q("Drink tickets used"),         t.used,    q(pct(t.used, t.web) + "% of normal")].join(","));
+      lines.push([q("Drink tickets not used"),     t.pending, q(pct(t.pending, t.web) + "% of normal")].join(","));
+      lines.push("");
+      lines.push(["Date (JST)", "Total", "Normal", "Media", "Tickets used", "Tickets not used"].map(q).join(","));
+      days.forEach(d => lines.push([q(d.day), d.total, d.web, d.media, d.used, d.pending].join(",")));
+      lines.push([q("Total"), t.total, t.web, t.media, t.used, t.pending].join(","));
+
+      let suffix = "all";
+      if (from && to)  suffix = from === to ? from : `${from}_to_${to}`;
+      else if (from)   suffix = `from_${from}`;
+      else if (to)     suffix = `until_${to}`;
+
+      // BOM so Excel opens UTF-8 correctly
+      const blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = `hilton-niseko-analytics-${suffix}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    (function () {
+      const anBd  = document.getElementById("analytics-modal-backdrop");
+      const pinBd = document.getElementById("pin-modal-backdrop");
+      const input = document.getElementById("pin-input");
+      if (anBd)  anBd.addEventListener("click",  e => { if (e.target === anBd)  closeAnalyticsModal(); });
+      if (pinBd) pinBd.addEventListener("click", e => { if (e.target === pinBd) closePinModal(); });
+      if (input) input.addEventListener("keydown", e => { if (e.key === "Enter") submitAnalyticsPin(); });
+    })();
+  </script>
 
 </body>
 </html>

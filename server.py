@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import psycopg2, psycopg2.extras, os, traceback
+import psycopg2, psycopg2.extras, os, traceback, re, hmac, time
 
 app = Flask(__name__)
 
@@ -11,6 +11,9 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 DATABASE_URL   = os.environ.get("DATABASE_URL", "")
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "HILTON2026")
+# PIN for the Analytics section of admin.html. Set it in Railway → Variables.
+# If it is not set, analytics stays locked (no default PIN on purpose).
+ANALYTICS_PIN  = os.environ.get("ANALYTICS_PIN", "").strip()
 
 
 def get_db():
@@ -452,6 +455,101 @@ def admin_delete():
         return jsonify({"error": "not_found"}), 404
 
     return jsonify({"success": True, "deleted": deleted}), 200
+
+
+# ── GET /admin/analytics — protected by admin auth + ANALYTICS_PIN ────
+#    Query params: from=YYYY-MM-DD, to=YYYY-MM-DD (both optional, JST dates)
+#    Header:       X-Analytics-Pin
+#    Only active records (deleted = FALSE). Days are grouped in JST.
+#    created_at is stored in UTC (Postgres CURRENT_TIMESTAMP on Railway),
+#    so it is converted UTC → Asia/Tokyo before taking the date.
+
+# Simple brute-force protection: after 5 wrong PINs from the same IP,
+# lock that IP out for 5 minutes. In-memory, resets on redeploy.
+_PIN_MAX_FAILS   = 5
+_PIN_LOCK_SECS   = 300
+_pin_failures    = {}   # ip -> (fail_count, locked_until)
+_DATE_RE         = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _client_ip():
+    fwd = request.headers.get("X-Forwarded-For", "")
+    return fwd.split(",")[0].strip() if fwd else (request.remote_addr or "?")
+
+
+@app.route("/admin/analytics", methods=["GET"])
+def admin_analytics():
+    if not check_admin_auth():
+        return jsonify({"error": "unauthorized"}), 401
+
+    if not ANALYTICS_PIN:
+        return jsonify({"error": "analytics_pin_not_set"}), 503
+
+    ip = _client_ip()
+    fails, locked_until = _pin_failures.get(ip, (0, 0))
+    now = time.time()
+    if locked_until > now:
+        return jsonify({"error": "too_many_attempts",
+                        "retry_after": int(locked_until - now)}), 429
+
+    pin = request.headers.get("X-Analytics-Pin", "").strip()
+    if not hmac.compare_digest(pin.encode(), ANALYTICS_PIN.encode()):
+        fails += 1
+        if fails >= _PIN_MAX_FAILS:
+            _pin_failures[ip] = (0, now + _PIN_LOCK_SECS)
+            return jsonify({"error": "too_many_attempts",
+                            "retry_after": _PIN_LOCK_SECS}), 429
+        _pin_failures[ip] = (fails, 0)
+        return jsonify({"error": "invalid_pin",
+                        "attempts_left": _PIN_MAX_FAILS - fails}), 403
+    _pin_failures.pop(ip, None)
+
+    date_from = request.args.get("from", "").strip() or None
+    date_to   = request.args.get("to", "").strip() or None
+    for d in (date_from, date_to):
+        if d and not _DATE_RE.match(d):
+            return jsonify({"error": "invalid_date"}), 400
+    if date_from and date_to and date_from > date_to:
+        date_from, date_to = date_to, date_from
+
+    with get_db() as con:
+        with con.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """WITH r AS (
+                       SELECT ((created_at AT TIME ZONE 'UTC')
+                                AT TIME ZONE 'Asia/Tokyo')::date AS day,
+                              (source = 'media')        AS is_media,
+                              (ticket_used IS TRUE)     AS used
+                       FROM registrations
+                       WHERE deleted = FALSE
+                   )
+                   SELECT day,
+                          COUNT(*)                                        AS total,
+                          COUNT(*) FILTER (WHERE is_media IS NOT TRUE)    AS web,
+                          COUNT(*) FILTER (WHERE is_media IS TRUE)        AS media,
+                          COUNT(*) FILTER (WHERE is_media IS NOT TRUE AND used)     AS used,
+                          COUNT(*) FILTER (WHERE is_media IS NOT TRUE AND NOT used) AS pending
+                   FROM r
+                   WHERE (%(f)s::date IS NULL OR day >= %(f)s::date)
+                     AND (%(t)s::date IS NULL OR day <= %(t)s::date)
+                   GROUP BY day
+                   ORDER BY day NULLS FIRST""",
+                {"f": date_from, "t": date_to}
+            )
+            rows = cur.fetchall()
+
+    keys   = ("total", "web", "media", "used", "pending")
+    totals = {k: 0 for k in keys}
+    days   = []
+    for r in rows:
+        day = r["day"].isoformat() if r["day"] else "Unknown"
+        entry = {"day": day, **{k: int(r[k]) for k in keys}}
+        days.append(entry)
+        for k in keys:
+            totals[k] += entry[k]
+
+    return jsonify({"from": date_from, "to": date_to,
+                    "totals": totals, "days": days})
 
 
 # ── GET /wifi-password — public, used by ticket.html ──────────────────
